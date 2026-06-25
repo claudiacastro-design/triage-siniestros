@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triage de Siniestros — Koltin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F5F5F7; color: #1A1A1A; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 700px; margin: 0 auto; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header p { font-size: 14px; color: #666; margin-top: 4px; }
+  .section { background: white; border: 1px solid #E5E5E5; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .section.emergency { border-color: #F7C1C1; background: #FFFAFA; }
+  .section.step2 { border-color: #B5D4F4; background: #F5F9FF; }
+  .section-title { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .step-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .step-badge.s1 { background: #FCEBEB; color: #A32D2D; }
+  .step-badge.s2 { background: #E6F1FB; color: #0C447C; }
+  .step-badge-label { font-size: 14px; font-weight: 600; color: #1A1A1A; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 13px; color: #555; font-weight: 500; }
+  .field input, .field select, .field textarea { font-size: 14px; padding: 9px 12px; border-radius: 8px; border: 1px solid #D5D5D5; background: #FAFAFA; color: #1A1A1A; font-family: inherit; width: 100%; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #534AB7; background: white; }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .radio-pill { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #D5D5D5; border-radius: 20px; cursor: pointer; font-size: 13px; color: #444; background: #FAFAFA; transition: all 0.15s; user-select: none; }
+  .radio-pill:hover { border-color: #534AB7; background: #F0EFFD; }
+  .radio-pill.selected { border-color: #534AB7; background: #EEEDFE; color: #3C3489; font-weight: 500; }
+  .radio-pill.sel-emerg { border-color: #A32D2D; background: #FCEBEB; color: #791F1F; font-weight: 500; }
+  .radio-pill input { display: none; }
+  .asignado-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: 20px; background: #EEEDFE; color: #3C3489; border: 1px solid #AFA9EC; margin-top: 10px; }
+  .resumen-box { background: white; border: 1px solid #E5E5E5; border-radius: 12px; padding: 1.25rem; margin-top: 8px; display: none; }
+  .resumen-box.visible { display: block; }
+  .resumen-box.box-ambu { border-color: #F7C1C1; background: #FFFAFA; }
+  .resumen-box.box-form { border-color: #B5D4F4; background: #F5F9FF; }
+  .resumen-box.box-normal { border-color: #D0EAD6; background: #F5FBF7; }
+  .resumen-instruccion { font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.5; }
+  .resumen-texto { font-size: 12px; font-family: monospace; color: #333; white-space: pre-wrap; line-height: 1.6; background: #F5F5F7; border: 1px solid #E5E5E5; border-radius: 8px; padding: 12px; margin-bottom: 10px; max-height: 300px; overflow-y: auto; }
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s; margin-bottom: 8px; }
+  .btn:hover { opacity: 0.88; }
+  .btn-red    { background: #A32D2D; }
+  .btn-blue   { background: #0C447C; }
+  .btn-purple { background: #534AB7; }
+  .btn-green  { background: #0F6E56; }
+  .btn-outline { width: 100%; padding: 10px; border: 1px solid #D5D5D5; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; background: white; color: #666; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
+  .btn-outline:hover { background: #F5F5F7; }
+  .btn-copy { background: #534AB7; }
+  .btn-copy.copiado { background: #085041; }
+  .hidden { display: none !important; }
+  .step2-unlock { background: #E6F1FB; border: 1px solid #B5D4F4; border-radius: 10px; padding: 14px 16px; margin-top: 4px; font-size: 13px; color: #0C447C; display: flex; align-items: center; gap: 10px; }
+  .step2-unlock strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .divider { height: 1px; background: #EEE; margin: 14px 0; }
+  .checklist { display: flex; flex-direction: column; gap: 6px; }
+  .check-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 7px 10px; border-radius: 8px; }
+  .check-item.ok      { background: #E1F5EE; color: #085041; }
+  .check-item.missing { background: #FCEBEB; color: #791F1F; }
+  .priority-badge { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; margin-top: 4px; }
+  .p-muy-alta  { background: #FCEBEB; color: #791F1F; border: 1px solid #F7C1C1; }
+  .p-media     { background: #E6F1FB; color: #0C447C; border: 1px solid #B5D4F4; }
+  .p-bajisima  { background: #F5F5F7; color: #888;    border: 1px solid #DDD; }
+  .p-pendiente { background: #F5F5F7; color: #888;    border: 1px solid #DDD; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1A1A1A; color: white; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .amb-callout { background: #FCEBEB; border: 1px solid #F7C1C1; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+  .amb-callout a { color: #791F1F; font-weight: 600; font-size: 18px; text-decoration: none; }
+  .amb-callout span { font-size: 13px; color: #A32D2D; display: block; margin-top: 2px; }
+  @media (max-width: 520px) { .field-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏥 Triage de Siniestros — Koltin</h1>
+    <p>Llena el formulario, genera el mensaje para Claude y el caso se registra en Sheets automáticamente.</p>
+  </div>
+
+  <!-- DATOS BASE -->
+  <div class="section">
+    <div class="section-title">👤 Datos del asegurado</div>
+    <div class="field-grid">
+      <div class="field"><label>Nombre *</label><input id="nombre" type="text" placeholder="Nombre completo"></div>
+      <div class="field"><label>Póliza *</label><input id="poliza" type="text" placeholder="No. de póliza"></div>
+      <div class="field"><label>Número de Certificado *</label><input id="certificado" type="text" placeholder="No. de certificado"></div>
+      <div class="field"><label>Antigüedad</label><input id="antiguedad" type="text" placeholder="Ej: 2 años"></div>
+      <div class="field"><label>Fecha de ingreso a póliza</label><input id="fecha_ingreso" type="date"></div>
+      <div class="field" style="grid-column:1/-1"><label>Preexistencias declaradas</label><input id="preexistencias" type="text" placeholder="Ej: Diabetes, HTA, ninguna..."></div>
+    </div>
+  </div>
+
+  <!-- TIPO DE AVISO -->
+  <div class="section">
+    <div class="section-title">⚠️ Tipo de aviso *</div>
+    <div class="radio-group">
+      <label class="radio-pill" onclick="selectTipo(this,'Emergencia')"><input type="radio" name="tipo"> 🚑 Emergencia</label>
+      <label class="radio-pill" onclick="selectTipo(this,'Programada')"><input type="radio" name="tipo"> 📅 Programada</label>
+      <label class="radio-pill" onclick="selectTipo(this,'Reembolso')"><input type="radio" name="tipo"> 🧾 Reembolso</label>
+      <label class="radio-pill" onclick="selectTipo(this,'Incidencia')"><input type="radio" name="tipo"> ℹ️ Incidencia</label>
+    </div>
+  </div>
+
+  <!-- SUBTIPO EMERGENCIA -->
+  <div id="bloque-emerg-tipo" class="hidden">
+    <div class="section emergency">
+      <div class="section-title" style="color:#A32D2D;">🚑 ¿Requiere ambulancia?</div>
+      <div class="radio-group">
+        <label class="radio-pill" onclick="selectEmergTipo(this,'ambulancia')"><input type="radio" name="emerg_tipo"> 🚨 Sí, necesita ambulancia</label>
+        <label class="radio-pill" onclick="selectEmergTipo(this,'normal')"><input type="radio" name="emerg_tipo"> 🚗 No — va hacia el hospital</label>
+        <label class="radio-pill" onclick="selectEmergTipo(this,'info')"><input type="radio" name="emerg_tipo"> ❓ No — info para ingreso</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PASO 1 — AMBULANCIA
+  ══════════════════════════════════════════ -->
+  <div id="bloque-ambu-paso1" class="hidden">
+    <div class="section emergency">
+      <div class="step-header">
+        <span class="step-badge s1">PASO 1</span>
+        <span class="step-badge-label">Datos urgentes para la ambulancia</span>
+      </div>
+      <div class="amb-callout">
+        <a href="tel:5558094518">📞 55 5809 4518</a>
+        <span>Número de ambulancia — dar de inmediato</span>
+      </div>
+      <div class="field-grid">
+        <div class="field" style="grid-column:1/-1">
+          <label>Estado donde se encuentra *</label>
+          <select id="ambu_estado" onchange="updateAsignado()"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Dirección exacta *</label>
+          <input id="ambu_dir" type="text" placeholder="Calle, número, colonia, ciudad...">
+        </div>
+        <div class="field"><label>Peso aprox. (kg)</label><input id="ambu_peso" type="number" placeholder="kg" min="0"></div>
+        <div class="field"><label>Edad</label><input id="ambu_edad" type="number" placeholder="años" min="0"></div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Síntomas *</label>
+          <textarea id="ambu_sintomas" placeholder="Describe los síntomas actuales..."></textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>¿Qué sucedió?</label>
+          <textarea id="ambu_que" placeholder="Describe brevemente el evento..." style="min-height:55px;"></textarea>
+        </div>
+      </div>
+      <div id="ambu-asig" class="asignado-pill hidden">👤 <span id="ambu-asig-txt"></span></div>
+    </div>
+
+    <button class="btn btn-red" onclick="generarAmbu()">🚨 Generar alerta de ambulancia para Claude</button>
+
+    <div class="resumen-box box-ambu" id="resumen-ambu">
+      <p class="resumen-instruccion"><strong>🚨 Paso 1 listo.</strong> Copia y pega en Claude — él envía la alerta al canal.</p>
+      <div class="resumen-texto" id="txt-ambu"></div>
+      <button class="btn btn-copy" id="btn-copy-ambu" onclick="copiar('txt-ambu','btn-copy-ambu')">📋 Copiar alerta de ambulancia</button>
+      <div class="step2-unlock" id="aviso-paso2" style="display:none;">
+        <div>
+          <strong>✅ Alerta enviada — cuando puedas, completa el formulario</strong>
+          Con calma llena los datos adicionales para registrar el caso completo.
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2 -->
+    <div id="bloque-ambu-paso2" class="hidden" style="margin-top:8px;">
+      <div class="section step2">
+        <div class="step-header">
+          <span class="step-badge s2">PASO 2</span>
+          <span class="step-badge-label">Completar caso para canal de siniestros</span>
+        </div>
+        <div class="field-grid">
+          <div class="field" style="grid-column:1/-1"><label>Diagnóstico / Descripción adicional</label><textarea id="ambu_dx" placeholder="Diagnóstico o notas adicionales..."></textarea></div>
+          <div class="field"><label>Especialidad</label><select id="ambu_espec"><option value="">Seleccionar...</option><option>Gastro</option><option>Cardiología</option><option>Angiología</option><option>MSK</option><option>Neumología</option><option>Neurología</option><option>Oftalmología</option><option>Oncología</option><option>Cirugía General</option><option>Urología</option><option>Otorrinolaringología</option><option>Ginecología</option><option>Hepatología</option><option>Proctología</option><option>Nefrología</option><option>Dermatología</option><option>Infectología</option></select></div>
+          <div class="field"><label>Hospital</label><input id="ambu_hospital" type="text" placeholder="Nombre del hospital..."></div>
+          <div class="field"><label>Médico tratante</label><input id="ambu_medico" type="text" placeholder="Nombre y especialidad..."></div>
+          <div class="field"><label>¿Quién se contacta?</label>
+            <select id="ambu_quien">
+              <option value="">Seleccionar...</option>
+              <option>Asegurado</option><option>Familiar</option><option>Médico</option><option>Hospital</option><option>Otro</option>
+            </select>
+          </div>
+          <div class="field"><label>Teléfono</label><input id="ambu_tel" type="tel" placeholder="+52 55 ..."></div>
+          <div class="field"><label>Correo</label><input id="ambu_correo" type="email" placeholder="correo@ejemplo.com"></div>
+          <div class="field"><label>Expertx que atiende</label>
+            <select id="ambu_expertx">
+              <option value="" data-id="">Seleccionar expertx...</option>
+              <option value="Yaz" data-id="U07SHJB6BFX">Yaz</option>
+              <option value="Pame" data-id="U07SHJB11DK">Pame</option>
+              <option value="Katia" data-id="U098BJTK3GE">Katia</option>
+              <option value="Nohe" data-id="U08RS7U5JTD">Nohe</option>
+              <option value="Alejandro de la rosa" data-id="U098BJUFYCW">Alejandro de la rosa</option>
+              <option value="Rubén" data-id="U0AENCP1KAS">Rubén</option>
+              <option value="David" data-id="U0B370PFS31">David</option>
+              <option value="Adriana" data-id="U0B44PMRNDQ">Adriana</option>
+              <option value="Leonardo" data-id="U0B4RRQ8HFA">Leonardo</option>
+              <option value="Gaby" data-id="U0B3W8APS6A">Gaby</option>
+              <option value="Juan Carlos" data-id="U0B3RAS8WQK">Juan Carlos</option>
+              <option value="Laura" data-id="U0B3YJB7RMH">Laura</option>
+              <option value="Cristhian" data-id="U0B41GP2YS1">Cristhian</option>
+              <option value="Janneth" data-id="U09P1EZ4CHJ">Janneth</option>
+              <option value="Pau" data-id="U09CXHH03U5">Pau</option>
+              <option value="Sandra" data-id="U08D03666L9">Sandra</option>
+              <option value="Tania" data-id="U0657PNQ64R">Tania</option>
+              <option value="Alex" data-id="U08K5DJ0FMF">Alex</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Notas adicionales</label><textarea id="ambu_notas2" placeholder="Cualquier info relevante..." style="min-height:55px;"></textarea></div>
+        </div>
+      </div>
+      <button class="btn btn-blue" onclick="generarFormCompleto()">📋 Generar formulario completo para Claude</button>
+      <div class="resumen-box box-form" id="resumen-form">
+        <p class="resumen-instruccion"><strong>📋 Paso 2 listo.</strong> Copia y pega en Claude — él envía al canal de siniestros.</p>
+        <div class="resumen-texto" id="txt-form"></div>
+        <button class="btn btn-copy" id="btn-copy-form" onclick="copiar('txt-form','btn-copy-form')">📋 Copiar formulario completo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO INGRESO -->
+  <div id="bloque-info-ingreso" class="hidden">
+    <div class="section emergency">
+      <div class="section-title" style="color:#A32D2D;">🏥 Info para ingreso emergente</div>
+      <div class="field-grid">
+        <div class="field" style="grid-column:1/-1"><label>Estado donde se encuentra *</label><select id="info_estado" onchange="updateAsignado()"><option value="">Seleccionar...</option></select></div>
+        <div class="field" style="grid-column:1/-1"><label>Hospital de preferencia o más cercano</label><input id="info_hospital" type="text" placeholder="Nombre del hospital..."></div>
+        <div class="field" style="grid-column:1/-1"><label>Motivo / qué sucedió *</label><textarea id="info_motivo" placeholder="Describe el motivo de la emergencia..."></textarea></div>
+      </div>
+      <div id="info-asig" class="asignado-pill hidden">👤 <span id="info-asig-txt"></span></div>
+    </div>
+  </div>
+
+  <!-- CLÍNICO -->
+  <div id="bloque-clinico" class="hidden">
+    <div class="section">
+      <div class="section-title">🩺 Información clínica</div>
+      <div class="field-grid">
+        <div class="field" style="grid-column:1/-1"><label>Diagnóstico / Descripción</label><textarea id="diagnostico" placeholder="Diagnóstico o descripción del caso..."></textarea></div>
+        <div class="field"><label>Especialidad</label><select id="especialidad"><option value="">Seleccionar...</option><option>Gastro</option><option>Cardiología</option><option>Angiología</option><option>MSK</option><option>Neumología</option><option>Neurología</option><option>Oftalmología</option><option>Oncología</option><option>Cirugía General</option><option>Urología</option><option>Otorrinolaringología</option><option>Ginecología</option><option>Hepatología</option><option>Proctología</option><option>Nefrología</option><option>Dermatología</option><option>Infectología</option></select></div>
+        <div class="field"><label>Hospital</label><input id="hospital" type="text" placeholder="Nombre del hospital..."></div>
+        <div class="field" style="grid-column:1/-1"><label>Médico tratante</label><input id="medico" type="text" placeholder="Nombre y especialidad..."></div>
+        <div class="field" style="grid-column:1/-1"><label>Notas adicionales</label><textarea id="notas" placeholder="Cualquier información relevante..."></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACTO -->
+  <div id="bloque-contacto" class="hidden">
+    <div class="section">
+      <div class="section-title">📞 Contacto y asignación</div>
+      <div class="field-grid">
+        <div class="field"><label>¿Quién se contacta? *</label>
+          <select id="quien_contacta">
+            <option value="">Seleccionar...</option>
+            <option>Asegurado</option><option>Familiar</option><option>Médico</option><option>Hospital</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="field"><label>Teléfono *</label><input id="telefono" type="tel" placeholder="+52 55 ..."></div>
+        <div class="field"><label>Correo</label><input id="correo" type="email" placeholder="correo@ejemplo.com"></div>
+        <div class="field"><label>Estado donde se encuentra *</label><select id="estado" onchange="updateAsignado()"><option value="">Seleccionar...</option></select></div>
+        <div class="field"><label>Fecha *</label><input id="fecha" type="date"></div>
+        <div class="field" style="grid-column:1/-1"><label>Expertx que atiende *</label>
+          <select id="expertx">
+            <option value="" data-id="">Seleccionar expertx...</option>
+            <option value="Yaz" data-id="U07SHJB6BFX">Yaz</option>
+            <option value="Pame" data-id="U07SHJB11DK">Pame</option>
+            <option value="Katia" data-id="U098BJTK3GE">Katia</option>
+            <option value="Nohe" data-id="U08RS7U5JTD">Nohe</option>
+            <option value="Alejandro de la rosa" data-id="U098BJUFYCW">Alejandro de la rosa</option>
+            <option value="Rubén" data-id="U0AENCP1KAS">Rubén</option>
+            <option value="David" data-id="U0B370PFS31">David</option>
+            <option value="Adriana" data-id="U0B44PMRNDQ">Adriana</option>
+            <option value="Leonardo" data-id="U0B4RRQ8HFA">Leonardo</option>
+            <option value="Gaby" data-id="U0B3W8APS6A">Gaby</option>
+            <option value="Juan Carlos" data-id="U0B3RAS8WQK">Juan Carlos</option>
+            <option value="Laura" data-id="U0B3YJB7RMH">Laura</option>
+            <option value="Cristhian" data-id="U0B41GP2YS1">Cristhian</option>
+            <option value="Janneth" data-id="U09P1EZ4CHJ">Janneth</option>
+            <option value="Pau" data-id="U09CXHH03U5">Pau</option>
+            <option value="Sandra" data-id="U08D03666L9">Sandra</option>
+            <option value="Tania" data-id="U0657PNQ64R">Tania</option>
+            <option value="Alex" data-id="U08K5DJ0FMF">Alex</option>
+          </select>
+        </div>
+        <div id="cc-wrap" class="hidden" style="grid-column:1/-1">
+          <div class="asignado-pill">👤 Care Coordination: <span id="cc-txt" style="margin-left:4px;"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIORIDAD -->
+  <div id="bloque-prioridad" class="hidden">
+    <div class="section">
+      <div class="section-title">📊 Prioridad calculada</div>
+      <div id="priority-badge" class="priority-badge p-pendiente">⏳ Completa el formulario</div>
+      <div class="divider"></div>
+      <div class="section-title" style="margin-top:4px;">✅ Datos obligatorios</div>
+      <div class="checklist" id="checklist"></div>
+    </div>
+  </div>
+
+  <!-- BOTÓN GENERAR -->
+  <div id="bloque-btn-normal" class="hidden">
+    <button class="btn btn-purple" onclick="generarNormal()">💬 Generar mensaje para Claude</button>
+  </div>
+
+  <!-- RESUMEN NORMAL -->
+  <div class="resumen-box box-normal" id="resumen-normal">
+    <p class="resumen-instruccion"><strong>✅ Listo.</strong> El caso ya quedó registrado en Sheets. Copia y pega en Claude para que lo envíe al canal de siniestros.</p>
+    <div class="resumen-texto" id="txt-normal"></div>
+    <button class="btn btn-copy" id="btn-copy-normal" onclick="copiar('txt-normal','btn-copy-normal')">📋 Copiar mensaje para Claude</button>
+  </div>
+
+  <div style="margin-top:4px;">
+    <button class="btn-outline" onclick="limpiarForm()">🔄 Nuevo caso</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const CANAL_PRUEBA = 'C09FV054GSF';
+const CC_GROUP     = 'S09AVNX1E9K';
+const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbzpd4prJQcAJLFqC4Vp4qgeiFBnxowXmCU9b3VYS_-XssvhEo2ebcDWAKhT9zm56WeaAQ/exec';
+
+// ─── ESTADOS ─────────────────────────────────────────────────────────────────
+const ESTADOS = ['Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua','Ciudad de México','Coahuila','Colima','Durango','Estado de México','Guanajuato','Guerrero','Hidalgo','Jalisco','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'];
+['ambu_estado','info_estado','estado'].forEach(id=>{
+  const s=document.getElementById(id);
+  if(s) ESTADOS.forEach(e=>{ const o=document.createElement('option'); o.value=e; o.textContent=e; s.appendChild(o); });
+});
+
+// ─── CARE COORDINATION ───────────────────────────────────────────────────────
+const CC = {
+  pau:   { id:'U09CXHH03U5', nombre:'Pau'      },
+  sandy: { id:'U08D03666L9', nombre:'Sandra'     },
+  tania: { id:'U0657PNQ64R', nombre:'Tania'     },
+  alex:  { id:'U08K5DJ0FMF', nombre:'Alex' },
+};
+const NORTE = new Set(['Aguascalientes','Baja California','Baja California Sur','Chihuahua','Coahuila','Durango','Nayarit','Nuevo León','San Luis Potosí','Sinaloa','Sonora','Tamaulipas','Zacatecas']);
+let _rot = 0;
+const ROTA = [CC.sandy, CC.tania, CC.alex];
+
+function getCC(estado){
+  if(!estado) return null;
+  if(NORTE.has(estado))  return { cc:CC.pau,   label:'Región Norte → Pau'   };
+  if(estado==='Jalisco') return { cc:CC.sandy, label:'Jalisco → Sandra'      };
+  const a=ROTA[_rot%3]; _rot++;
+  return { cc:a, label:`Resto/CDMX → ${a.nombre}` };
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const state = { tipo:null, emergTipo:null };
+const g  = id => document.getElementById(id)?.value?.trim()||'';
+const gn = id => parseFloat(document.getElementById(id)?.value)||0;
+const show = id => document.getElementById(id)?.classList.remove('hidden');
+const hide = id => document.getElementById(id)?.classList.add('hidden');
+
+// ─── SELECCIÓN TIPO ──────────────────────────────────────────────────────────
+function selectTipo(el,val){
+  document.querySelectorAll('[name="tipo"]').forEach(r=>r.closest('.radio-pill').classList.remove('selected'));
+  el.classList.add('selected');
+  state.tipo=val; state.emergTipo=null;
+  ocultarResumenes();
+  renderFlujo();
+}
+function selectEmergTipo(el,val){
+  document.querySelectorAll('[name="emerg_tipo"]').forEach(r=>r.closest('.radio-pill').classList.remove('selected','sel-emerg'));
+  el.classList.add('sel-emerg');
+  state.emergTipo=val;
+  ocultarResumenes();
+  renderFlujo();
+}
+function ocultarResumenes(){
+  ['resumen-ambu','resumen-form','resumen-normal'].forEach(id=>document.getElementById(id).classList.remove('visible'));
+  hide('bloque-ambu-paso2');
+  const a=document.getElementById('aviso-paso2'); if(a) a.style.display='none';
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderFlujo(){
+  ['bloque-emerg-tipo','bloque-ambu-paso1','bloque-info-ingreso',
+   'bloque-clinico','bloque-contacto','bloque-prioridad','bloque-btn-normal'].forEach(hide);
+
+  const t=state.tipo, et=state.emergTipo;
+  if(!t) return;
+
+  if(t==='Emergencia'){
+    show('bloque-emerg-tipo');
+    if(et==='ambulancia'){
+      show('bloque-ambu-paso1');
+    } else if(et==='info'){
+      show('bloque-info-ingreso');
+      show('bloque-contacto');
+      show('bloque-prioridad');
+      show('bloque-btn-normal');
+    } else if(et==='normal'){
+      // Va hacia el hospital — formulario único como emergencia normal
+      show('bloque-clinico');
+      show('bloque-contacto');
+      show('bloque-prioridad');
+      show('bloque-btn-normal');
+    }
+  } else {
+    show('bloque-clinico');
+    show('bloque-contacto');
+    show('bloque-prioridad');
+    show('bloque-btn-normal');
+  }
+  updateAsignado();
+  updatePriority();
+}
+
+// ─── ASIGNACIÓN ──────────────────────────────────────────────────────────────
+function updateAsignado(){
+  const t=state.tipo, et=state.emergTipo;
+  const esAmbu = t==='Emergencia' && et==='ambulancia';
+  const estado = esAmbu ? g('ambu_estado') : et==='info' ? g('info_estado') : g('estado');
+  const asig = estado ? getCC(estado) : null;
+
+  const ba=document.getElementById('ambu-asig'), bat=document.getElementById('ambu-asig-txt');
+  if(ba&&bat){ if(asig&&esAmbu){ bat.textContent=asig.label; ba.classList.remove('hidden'); } else ba.classList.add('hidden'); }
+  const bi=document.getElementById('info-asig'), bit=document.getElementById('info-asig-txt');
+  if(bi&&bit){ if(asig&&et==='info'){ bit.textContent=asig.label; bi.classList.remove('hidden'); } else bi.classList.add('hidden'); }
+  const cw=document.getElementById('cc-wrap'), ct=document.getElementById('cc-txt');
+  if(cw&&ct){ if(asig&&estado&&!esAmbu){ ct.textContent=asig.label; cw.classList.remove('hidden'); } else cw.classList.add('hidden'); }
+
+  updatePriority();
+}
+
+// ─── PRIORIDAD ───────────────────────────────────────────────────────────────
+function calcPriority(){
+  const t=state.tipo, et=state.emergTipo;
+  if(!t) return { level:'pendiente', cls:'p-pendiente', emoji:'⏳', label:'Completa el formulario' };
+  if(t==='Emergencia') return { level:'MUY ALTA', cls:'p-muy-alta', emoji:'🚨', label:`Emergencia${et&&et!=='ambulancia'?' · '+et:''}` };
+  if(t==='Incidencia') return { level:'BAJA', cls:'p-bajisima', emoji:'⬇️', label:'Incidencia' };
+  return { level:'MEDIA', cls:'p-media', emoji:'🟡', label:`${t}` };
+}
+function updatePriority(){
+  const p=calcPriority();
+  const b=document.getElementById('priority-badge');
+  if(b){ b.className='priority-badge '+p.cls; b.textContent=`${p.emoji} Prioridad ${p.level} — ${p.label}`; }
+  const cl=document.getElementById('checklist');
+  if(!cl) return;
+  const checks=[
+    { label:'Nombre', val:g('nombre') },
+    { label:'Póliza', val:g('poliza') },
+    { label:'Certificado', val:g('certificado') },
+    { label:'Quién se contacta', val:g('quien_contacta') },
+    { label:'Teléfono', val:g('telefono') },
+    { label:'Estado', val:g('estado')||g('info_estado') },
+    { label:'Expertx que atiende', val:g('expertx') },
+  ];
+  cl.innerHTML=checks.map(c=>{
+    const ok=!!c.val;
+    return `<div class="check-item ${ok?'ok':'missing'}">${ok?'✅':'❌'} ${c.label}</div>`;
+  }).join('');
+}
+
+// ─── REGISTRO EN SHEETS ──────────────────────────────────────────────────────
+async function registrarEnSheets(datos){
+  const params = new URLSearchParams({
+    A: datos.certificado || '',
+    B: datos.fecha       || '',
+    E: datos.tipo        || '',
+    O: datos.especialidad|| '',
+    P: datos.dx          || '',
+    S: datos.estado      || '',
+    Y: datos.cc          || '',
+  });
+  try {
+    await fetch(`${SHEETS_URL}?${params.toString()}`, {
+      method: 'GET',
+      mode: 'no-cors',
+    });
+    mostrarToast('✅ Caso registrado en Sheets');
+  } catch(e) {
+    mostrarToast('⚠️ No se pudo registrar en Sheets');
+    console.warn('Sheets error:', e);
+  }
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function mostrarToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// ─── COPIAR ──────────────────────────────────────────────────────────────────
+function copiar(txtId, btnId){
+  const txt=document.getElementById(txtId).textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.getElementById(btnId);
+    const orig=btn.textContent;
+    btn.classList.add('copiado'); btn.textContent='✅ ¡Copiado! Pégalo en Claude';
+    if(btnId==='btn-copy-ambu'){
+      const av=document.getElementById('aviso-paso2'); if(av) av.style.display='flex';
+      show('bloque-ambu-paso2');
+    }
+    setTimeout(()=>{ btn.classList.remove('copiado'); btn.textContent=orig; },3000);
+  });
+}
+
+// ─── GENERAR ALERTA AMBULANCIA (PASO 1) ─────────────────────────────────────
+function generarAmbu(){
+  if(!g('nombre')||!g('poliza')||!g('certificado')){
+    alert('Completa Nombre, Póliza y Certificado antes de continuar.');
+    return;
+  }
+  const estado=g('ambu_estado');
+  const asig=estado?getCC(estado):null;
+  const ccMen=asig?`<@${asig.cc.id}>`:'Care Coordination';
+
+  const msg =
+`${ccMen}, ¿nos apoyas solicitando ambulancia? 🚨
+
+*Asegurado:* ${g('nombre')} | *Póliza:* ${g('poliza')} | *Certificado:* ${g('certificado')}
+*Estado:* ${estado||'—'}
+*Dirección:* ${g('ambu_dir')||'—'}
+*Síntomas:* ${g('ambu_sintomas')||'—'} | *Peso:* ${gn('ambu_peso')||'—'} kg | *Edad:* ${gn('ambu_edad')||'—'} años
+*Qué sucedió:* ${g('ambu_que')||'—'}
+
+FYI <!subteam^${CC_GROUP}> 🙏`;
+
+  document.getElementById('txt-ambu').textContent=
+`Envía este mensaje al canal de prueba (${CANAL_PRUEBA}):\n\n${msg}`;
+  document.getElementById('resumen-ambu').classList.add('visible');
+  document.getElementById('resumen-ambu').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ─── GENERAR FORMULARIO COMPLETO (PASO 2 - AMBULANCIA) ──────────────────────
+function generarFormCompleto(){
+  const estado=g('ambu_estado');
+  const asig=estado?getCC(estado):null;
+  const ccMen=asig?`<@${asig.cc.id}>`:'-';
+  const ccNom=asig?asig.cc.nombre:'—';
+
+  const exSel=document.getElementById('ambu_expertx');
+  const exNom=exSel.value;
+  const exId=exSel.selectedOptions[0]?.dataset.id||'';
+  const exMen=exId?`<@${exId}>`:exNom||'—';
+
+  const dx=[g('ambu_sintomas'),g('ambu_dx')].filter(Boolean).join(' — ');
+  const fecha=new Date().toLocaleDateString('es-MX');
+
+  const msgSin=[
+    `*Siniestro — Emergencia (con ambulancia)*`,``,
+    `*Asegurado:* ${g('nombre')} | *Póliza:* ${g('poliza')} | *Certificado:* ${g('certificado')}`,
+    g('antiguedad')?`*Antigüedad:* ${g('antiguedad')}`:null,
+    g('preexistencias')?`*Preexistencias:* ${g('preexistencias')}`:null,``,
+    g('ambu_espec')?`*Especialidad:* ${g('ambu_espec')}`:null,
+    dx?`*Dx / Situación:* ${dx}`:null,
+    g('ambu_hospital')?`*Hospital:* ${g('ambu_hospital')}`:null,
+    g('ambu_medico')?`*Médico:* ${g('ambu_medico')}`:null,
+    estado?`*Estado:* ${estado}`:null,``,
+    g('ambu_quien')?`*Contacto:* ${g('ambu_quien')}${g('ambu_tel')?' · '+g('ambu_tel'):''}`:null,
+    g('ambu_correo')?`*Correo:* ${g('ambu_correo')}`:null,``,
+    `*Expertx:* ${exMen}`,
+    asig?`*Care Coordination:* ${ccMen}`:null,
+    g('ambu_notas2')?`\n_${g('ambu_notas2')}_`:null,
+  ].filter(x=>x!==null).join('\n');
+
+  registrarEnSheets({
+    certificado:g('certificado'), fecha, tipo:'Emergencia',
+    especialidad:g('ambu_espec'), dx, estado, cc:ccNom,
+  });
+
+  document.getElementById('txt-form').textContent=
+`Envía este mensaje al canal de prueba (${CANAL_PRUEBA}):\n\n${msgSin}`;
+  document.getElementById('resumen-form').classList.add('visible');
+  document.getElementById('resumen-form').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ─── GENERAR CASOS NORMALES ──────────────────────────────────────────────────
+function generarNormal(){
+  if(!g('nombre')||!g('poliza')||!g('certificado')){
+    alert('Completa Nombre, Póliza y Certificado antes de continuar.');
+    return;
+  }
+  const t=state.tipo, et=state.emergTipo;
+  const estado = et==='info' ? g('info_estado') : g('estado');
+  const asig=estado?getCC(estado):null;
+  const ccMen=asig?`<@${asig.cc.id}>`:null;
+  const ccNom=asig?asig.cc.nombre:'—';
+
+  const exSel=document.getElementById('expertx');
+  const exNom=exSel.value;
+  const exId=exSel.selectedOptions[0]?.dataset.id||'';
+  const exMen=exId?`<@${exId}>`:exNom||'—';
+
+  let dx=g('diagnostico');
+  let hospital=g('hospital');
+  const espec=g('especialidad');
+  if(et==='info'){ dx=g('info_motivo'); hospital=g('info_hospital'); }
+
+  const fecha=new Date().toLocaleDateString('es-MX');
+
+  const msgSin=[
+    `*Siniestro — ${t}*`,``,
+    `*Asegurado:* ${g('nombre')} | *Póliza:* ${g('poliza')} | *Certificado:* ${g('certificado')}`,
+    g('antiguedad')?`*Antigüedad:* ${g('antiguedad')}`:null,
+    g('preexistencias')?`*Preexistencias:* ${g('preexistencias')}`:null,``,
+    espec?`*Especialidad:* ${espec}`:null,
+    dx?`*Dx / Situación:* ${dx}`:null,
+    hospital?`*Hospital:* ${hospital}`:null,
+    g('medico')?`*Médico:* ${g('medico')}`:null,
+    estado?`*Estado:* ${estado}`:null,``,
+    g('quien_contacta')?`*Contacto:* ${g('quien_contacta')}${g('telefono')?' · '+g('telefono'):''}`:null,
+    g('correo')?`*Correo:* ${g('correo')}`:null,``,
+    `*Expertx:* ${exMen}`,
+    asig&&ccMen?`*Care Coordination:* ${ccMen}`:null,
+    g('notas')?`\n_${g('notas')}_`:null,
+  ].filter(x=>x!==null).join('\n');
+
+  registrarEnSheets({
+    certificado:g('certificado'), fecha, tipo:t,
+    especialidad:espec, dx, estado, cc:ccNom,
+  });
+
+  document.getElementById('txt-normal').textContent=
+`Envía este mensaje al canal de prueba (${CANAL_PRUEBA}):\n\n${msgSin}`;
+  document.getElementById('resumen-normal').classList.add('visible');
+  document.getElementById('resumen-normal').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ─── LIMPIAR ─────────────────────────────────────────────────────────────────
+function limpiarForm(){
+  document.querySelectorAll('input,select,textarea').forEach(el=>{ if(el.type==='radio') el.checked=false; else el.value=''; });
+  document.querySelectorAll('.radio-pill').forEach(p=>p.classList.remove('selected','sel-emerg'));
+  Object.assign(state,{tipo:null,emergTipo:null});
+  ['bloque-emerg-tipo','bloque-ambu-paso1','bloque-ambu-paso2','bloque-info-ingreso',
+   'bloque-clinico','bloque-contacto','bloque-prioridad','bloque-btn-normal'].forEach(hide);
+  ['resumen-ambu','resumen-form','resumen-normal'].forEach(id=>document.getElementById(id).classList.remove('visible'));
+  const av=document.getElementById('aviso-paso2'); if(av) av.style.display='none';
+  document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
+}
+
+document.addEventListener('input',()=>{ updateAsignado(); updatePriority(); });
+document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
